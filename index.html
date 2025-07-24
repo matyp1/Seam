@@ -262,7 +262,6 @@
     // Groups
     const boardGroup = new THREE.Group();
     const pieceGroup = new THREE.Group();
-    scene.add(boardGroup);
     scene.add(pieceGroup);
 
     // Store squares and pieces
@@ -297,6 +296,7 @@
         while(boardGroup.children.length > 0) {
             boardGroup.remove(boardGroup.children[0]);
         }
+        scene.add(boardGroup);
 
         for (let row = 0; row < BOARD_SIZE; row++) {
             squares[row] = [];
