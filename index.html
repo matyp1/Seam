@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grand Chess - 12x12 Playable Chess</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+```
+    #container {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+    }
+
+    #controls {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.9);
+        padding: 15px;
+        border-radius: 8px;
+        color: white;
+        max-width: 280px;
+    }
+
+    .control-group {
+        margin-bottom: 15px;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    input[type="range"] {
+        width: 150px;
+        margin-bottom: 5px;
+    }
+
+    button {
+        background: #4a90e2;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 2px;
+        font-size: 12px;
+    }
+
+    button:hover {
+        background: #357abd;
+    }
+
+    button.active {
+        background: #28a745;
+    }
+
+    #gameStatus {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        min-width: 200px;
+        z-index: 100;
+    }
+
+    .status-item {
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .turn-indicator {
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+
+    .white-turn { background: rgba(255, 255, 255, 0.2); }
+    .black-turn { background: rgba(0, 0, 0, 0.3); }
+
+    #moveHistory {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        width: 200px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 100;
+    }
+
+    .move-entry {
+        font-family: monospace;
+        font-size: 12px;
+        margin-bottom: 3px;
+    }
+
+    #info {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        color: white;
+        background: rgba(0, 0, 0, 0.9);
+        padding: 15px;
+        border-radius: 8px;
+        font-size: 14px;
+        max-width: 300px;
+    }
+
+    .piece-captured {
+        color: #ff6b6b;
+        font-weight: bold;
+    }
+
+    .valid-move {
+        background: rgba(0, 255, 0, 0.3) !important;
+    }
+
+    .attack-move {
+        background: rgba(255, 0, 0, 0.4) !important;
+    }
+
+    .last-move {
+        background: rgba(255, 255, 0, 0.2) !important;
+    }
+</style>
+```
+
+</head>
+<body>
+    <div id="container">
+        <div id="controls">
+            <div class="control-group">
+                <label>Camera Height:</label>
+                <input type="range" id="heightSlider" min="8" max="25" step="1" value="16">
+                <span id="heightValue">16</span>
+            </div>
+
+```
+        <div class="control-group">
+            <label>View Angle:</label>
+            <input type="range" id="angleSlider" min="0" max="90" step="5" value="45">
+            <span id="angleValue">45°</span>
+        </div>
+
+        <div class="control-group">
+            <button id="resetGame">New Game</button>
+            <button id="undoMove">Undo Move</button>
+        </div>
+
+        <div class="control-group">
+            <button id="autoRotate" class="active">Auto Rotate</button>
+            <button id="showMoves" class="active">Show Valid Moves</button>
+        </div>
+    </div>
+
+    <div id="gameStatus">
+        <div class="turn-indicator white-turn" id="turnIndicator">
+            White's Turn
+        </div>
+        <div class="status-item">
+            <span>White Pieces:</span>
+            <span id="whitePieces">24</span>
+        </div>
+        <div class="status-item">
+            <span>Black Pieces:</span>
+            <span id="blackPieces">24</span>
+        </div>
+        <div class="status-item">
+            <span>Moves:</span>
+            <span id="moveCount">0</span>
+        </div>
+        <div class="status-item">
+            <span>Selected:</span>
+            <span id="selectedPiece">None</span>
+        </div>
+    </div>
+
+    <div id="moveHistory">
+        <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">Move History</div>
+        <div id="historyList"></div>
+    </div>
+
+    <div id="info">
+        <div><strong>Grand Chess (12x12)</strong></div>
+        <div>• Click piece to select</div>
+        <div>• Click highlighted square to move</div>
+        <div>• Green = valid moves</div>
+        <div>• Red = attack moves</div>
+        <div>• Yellow = last move</div>
+        <div>• Additional pieces: Cardinals, Marshals</div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x0a0a0a);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.getElementById('container').appendChild(renderer.domElement);
+
+    // Game parameters
+    const BOARD_SIZE = 12;
+    const SQUARE_SIZE = 1;
+    const PIECE_HEIGHT = 0.8;
+
+    // Game state
+    let currentPlayer = 'white';
+    let selectedSquare = null;
+    let selectedPiece = null;
+    let validMoves = [];
+    let gameBoard = [];
+    let moveHistory = [];
+    let autoRotateEnabled = true;
+    let showValidMoves = true;
+    let cameraAngle = 0;
+
+    // Camera parameters
+    let cameraHeight = 16;
+    let cameraViewAngle = 45;
+
+    // Materials
+    const lightSquareMaterial = new THREE.MeshLambertMaterial({ color: 0xf0d9b5 });
+    const darkSquareMaterial = new THREE.MeshLambertMaterial({ color: 0xb58863 });
+    const selectedMaterial = new THREE.MeshLambertMaterial({ color: 0x66ff66 });
+    const validMoveMaterial = new THREE.MeshLambertMaterial({ color: 0x90EE90 });
+    const attackMoveMaterial = new THREE.MeshLambertMaterial({ color: 0xff6b6b });
+    const lastMoveMaterial = new THREE.MeshLambertMaterial({ color: 0xffff99 });
+
+    // Piece materials
+    const whitePieceMaterial = new THREE.MeshLambertMaterial({ color: 0xf8f8ff });
+    const blackPieceMaterial = new THREE.MeshLambertMaterial({ color: 0x2f2f2f });
+
+    // Groups
+    const boardGroup = new THREE.Group();
+    const pieceGroup = new THREE.Group();
+    scene.add(boardGroup);
+    scene.add(pieceGroup);
+
+    // Store squares and pieces
+    const squares = [];
+    const pieces = [];
+
+    // Piece definitions for Grand Chess
+    const PIECE_TYPES = {
+        'P': 'Pawn', 'R': 'Rook', 'N': 'Knight', 'B': 'Bishop',
+        'Q': 'Queen', 'K': 'King', 'C': 'Cardinal', 'M': 'Marshal'
+    };
+
+    // Initial board setup for 12x12 Grand Chess
+    const initialBoard = [
+        ['r', 'n', 'b', 'c', 'q', 'k', 'c', 'b', 'n', 'r', 'n', 'r'],
+        ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', '', ''],
+        ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+        ['R', 'N', 'B', 'C', 'Q', 'K', 'C', 'B', 'N', 'R', 'N', 'R']
+    ];
+
+    // Create the chess board
+    function createBoard() {
+        // Clear existing board
+        while(boardGroup.children.length > 0) {
+            boardGroup.remove(boardGroup.children[0]);
+        }
+
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            squares[row] = [];
+            gameBoard[row] = [];
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                const geometry = new THREE.BoxGeometry(SQUARE_SIZE, 0.2, SQUARE_SIZE);
+                const isLight = (row + col) % 2 === 0;
+                const material = isLight ? lightSquareMaterial : darkSquareMaterial;
+
+                const square = new THREE.Mesh(geometry, material);
+                square.position.x = (col - BOARD_SIZE/2 + 0.5) * SQUARE_SIZE;
+                square.position.z = (row - BOARD_SIZE/2 + 0.5) * SQUARE_SIZE;
+                square.position.y = 0.1;
+
+                square.castShadow = true;
+                square.receiveShadow = true;
+
+                square.originalMaterial = material;
+                square.boardRow = row;
+                square.boardCol = col;
+
+                boardGroup.add(square);
+                squares[row][col] = square;
+                gameBoard[row][col] = initialBoard[row][col];
+            }
+        }
+    }
+
+    // Create piece geometry
+    function createPieceGeometry(pieceType) {
+        switch(pieceType.toLowerCase()) {
+            case 'p': // Pawn
+                return new THREE.ConeGeometry(0.2, PIECE_HEIGHT, 8);
+            case 'r': // Rook
+                return new THREE.BoxGeometry(0.4, PIECE_HEIGHT, 0.4);
+            case 'n': // Knight
+                return new THREE.ConeGeometry(0.25, PIECE_HEIGHT, 6);
+            case 'b': // Bishop
+                return new THREE.ConeGeometry(0.2, PIECE_HEIGHT, 4);
+            case 'q': // Queen
+                return new THREE.ConeGeometry(0.3, PIECE_HEIGHT * 1.2, 8);
+            case 'k': // King
+                return new THREE.ConeGeometry(0.35, PIECE_HEIGHT * 1.3, 12);
+            case 'c': // Cardinal (Bishop + Knight)
+                return new THREE.CylinderGeometry(0.15, 0.25, PIECE_HEIGHT, 6);
+            case 'm': // Marshal (Rook + Knight)
+                return new THREE.CylinderGeometry(0.2, 0.3, PIECE_HEIGHT, 8);
+            default:
+                return new THREE.BoxGeometry(0.3, PIECE_HEIGHT, 0.3);
+        }
+    }
+
+    // Create pieces
+    function createPieces() {
+        // Clear existing pieces
+        while(pieceGroup.children.length > 0) {
+            pieceGroup.remove(pieceGroup.children[0]);
+        }
+        pieces.length = 0;
+
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            pieces[row] = [];
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                const pieceType = gameBoard[row][col];
+                if (pieceType) {
+                    const geometry = createPieceGeometry(pieceType);
+                    const isWhite = pieceType === pieceType.toUpperCase();
+                    const material = isWhite ? whitePieceMaterial : blackPieceMaterial;
+
+                    const piece = new THREE.Mesh(geometry, material);
+                    piece.position.x = (col - BOARD_SIZE/2 + 0.5) * SQUARE_SIZE;
+                    piece.position.z = (row - BOARD_SIZE/2 + 0.5) * SQUARE_SIZE;
+                    piece.position.y = PIECE_HEIGHT / 2 + 0.2;
+
+                    piece.castShadow = true;
+                    piece.receiveShadow = true;
+
+                    piece.pieceType = pieceType;
+                    piece.boardRow = row;
+                    piece.boardCol = col;
+                    piece.isWhite = isWhite;
+
+                    pieceGroup.add(piece);
+                    pieces[row][col] = piece;
+                } else {
+                    pieces[row][col] = null;
+                }
+            }
+        }
+    }
+
+    // Get valid moves for a piece
+    function getValidMoves(row, col, pieceType) {
+        const moves = [];
+        const isWhite = pieceType === pieceType.toUpperCase();
+        const type = pieceType.toLowerCase();
+
+        function addMove(newRow, newCol, isAttack = false) {
+            if (newRow >= 0 && newRow < BOARD_SIZE && newCol >= 0 && newCol < BOARD_SIZE) {
+                const targetPiece = gameBoard[newRow][newCol];
+                if (!targetPiece) {
+                    moves.push({row: newRow, col: newCol, type: 'move'});
+                    return true; // Can continue in this direction
+                } else if ((targetPiece === targetPiece.toUpperCase()) !== isWhite) {
+                    moves.push({row: newRow, col: newCol, type: 'attack'});
+                    return false; // Can't continue past a piece
+                }
+                return false; // Blocked by own piece
+            }
+            return false;
+        }
+
+        function addDirection(rowDir, colDir, maxDistance = BOARD_SIZE) {
+            for (let i = 1; i <= maxDistance; i++) {
+                if (!addMove(row + rowDir * i, col + colDir * i)) break;
+            }
+        }
+
+        switch(type) {
+            case 'p': // Pawn
+                const direction = isWhite ? -1 : 1;
+                const startRow = isWhite ? BOARD_SIZE - 3 : 2;
+
+                // Forward moves
+                if (addMove(row + direction, col)) {
+                    if (row === startRow) {
+                        addMove(row + direction * 2, col);
+                    }
+                }
+
+                // Diagonal attacks
+                const leftCol = col - 1;
+                const rightCol = col + 1;
+                if (leftCol >= 0 && gameBoard[row + direction] && gameBoard[row + direction][leftCol] &&
+                    (gameBoard[row + direction][leftCol] === gameBoard[row + direction][leftCol].toUpperCase()) !== isWhite) {
+                    addMove(row + direction, leftCol);
+                }
+                if (rightCol < BOARD_SIZE && gameBoard[row + direction] && gameBoard[row + direction][rightCol] &&
+                    (gameBoard[row + direction][rightCol] === gameBoard[row + direction][rightCol].toUpperCase()) !== isWhite) {
+                    addMove(row + direction, rightCol);
+                }
+                break;
+
+            case 'r': // Rook
+                addDirection(0, 1);  // Right
+                addDirection(0, -1); // Left
+                addDirection(1, 0);  // Down
+                addDirection(-1, 0); // Up
+                break;
+
+            case 'n': // Knight
+                const knightMoves = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+                knightMoves.forEach(([r, c]) => addMove(row + r, col + c));
+                break;
+
+            case 'b': // Bishop
+                addDirection(1, 1);   // Down-right
+                addDirection(1, -1);  // Down-left
+                addDirection(-1, 1);  // Up-right
+                addDirection(-1, -1); // Up-left
+                break;
+
+            case 'q': // Queen
+                // Combine rook and bishop moves
+                addDirection(0, 1); addDirection(0, -1); addDirection(1, 0); addDirection(-1, 0);
+                addDirection(1, 1); addDirection(1, -1); addDirection(-1, 1); addDirection(-1, -1);
+                break;
+
+            case 'k': // King
+                // One square in any direction
+                for (let r = -1; r <= 1; r++) {
+                    for (let c = -1; c <= 1; c++) {
+                        if (r !== 0 || c !== 0) {
+                            addMove(row + r, col + c);
+                        }
+                    }
+                }
+                break;
+
+            case 'c': // Cardinal (Bishop + Knight)
+                // Bishop moves
+                addDirection(1, 1); addDirection(1, -1); addDirection(-1, 1); addDirection(-1, -1);
+                // Knight moves
+                const cardinalKnightMoves = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+                cardinalKnightMoves.forEach(([r, c]) => addMove(row + r, col + c));
+                break;
+
+            case 'm': // Marshal (Rook + Knight)
+                // Rook moves
+                addDirection(0, 1); addDirection(0, -1); addDirection(1, 0); addDirection(-1, 0);
+                // Knight moves
+                const marshalKnightMoves = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+                marshalKnightMoves.forEach(([r, c]) => addMove(row + r, col + c));
+                break;
+        }
+
+        return moves;
+    }
+
+    // Highlight valid moves
+    function highlightValidMoves() {
+        // Clear previous highlights
+        clearHighlights();
+
+        if (selectedPiece && showValidMoves) {
+            validMoves = getValidMoves(selectedPiece.boardRow, selectedPiece.boardCol, selectedPiece.pieceType);
+
+            validMoves.forEach(move => {
+                const square = squares[move.row][move.col];
+                if (move.type === 'attack') {
+                    square.material = attackMoveMaterial;
+                } else {
+                    square.material = validMoveMaterial;
+                }
+            });
+        }
+    }
+
+    // Clear all highlights
+    function clearHighlights() {
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                squares[row][col].material = squares[row][col].originalMaterial;
+            }
+        }
+    }
+
+    // Make a move
+    function makeMove(fromRow, fromCol, toRow, toCol) {
+        const piece = gameBoard[fromRow][fromCol];
+        const capturedPiece = gameBoard[toRow][toCol];
+
+        // Update game board
+        gameBoard[toRow][toCol] = piece;
+        gameBoard[fromRow][fromCol] = '';
+
+        // Update 3D pieces
+        if (pieces[toRow][toCol]) {
+            pieceGroup.remove(pieces[toRow][toCol]);
+        }
+
+        const piece3D = pieces[fromRow][fromCol];
+        piece3D.position.x = (toCol - BOARD_SIZE/2 + 0.5) * SQUARE_SIZE;
+        piece3D.position.z = (toRow - BOARD_SIZE/2 + 0.5) * SQUARE_SIZE;
+        piece3D.boardRow = toRow;
+        piece3D.boardCol = toCol;
+
+        pieces[toRow][toCol] = piece3D;
+        pieces[fromRow][fromCol] = null;
+
+        // Record move
+        const move = {
+            from: `${String.fromCharCode(65 + fromCol)}${fromRow + 1}`,
+            to: `${String.fromCharCode(65 + toCol)}${toRow + 1}`,
+            piece: PIECE_TYPES[piece.toUpperCase()],
+            captured: capturedPiece ? PIECE_TYPES[capturedPiece.toUpperCase()] : null,
+            player: currentPlayer
+        };
+
+        moveHistory.push(move);
+        updateMoveHistory();
+
+        // Switch players
+        currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+        updateGameStatus();
+
+        // Clear selection
+        selectedPiece = null;
+        selectedSquare = null;
+        clearHighlights();
+
+        // Auto-rotate camera
+        if (autoRotateEnabled) {
+            cameraAngle += Math.PI;
+        }
+    }
+
+    // Update game status display
+    function updateGameStatus() {
+        const turnIndicator = document.getElementById('turnIndicator');
+        turnIndicator.textContent = `${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)}'s Turn`;
+        turnIndicator.className = `turn-indicator ${currentPlayer}-turn`;
+
+        document.getElementById('moveCount').textContent = moveHistory.length;
+        document.getElementById('selectedPiece').textContent = selectedPiece ?
+            `${PIECE_TYPES[selectedPiece.pieceType.toUpperCase()]} at ${String.fromCharCode(65 + selectedPiece.boardCol)}${selectedPiece.boardRow + 1}` : 'None';
+
+        // Count pieces
+        let whitePieces = 0, blackPieces = 0;
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                const piece = gameBoard[row][col];
+                if (piece) {
+                    if (piece === piece.toUpperCase()) whitePieces++;
+                    else blackPieces++;
+                }
+            }
+        }
+
+        document.getElementById('whitePieces').textContent = whitePieces;
+        document.getElementById('blackPieces').textContent = blackPieces;
+    }
+
+    // Update move history display
+    function updateMoveHistory() {
+        const historyList = document.getElementById('historyList');
+        const move = moveHistory[moveHistory.length - 1];
+
+        if (move) {
+            const moveDiv = document.createElement('div');
+            moveDiv.className = 'move-entry';
+            moveDiv.innerHTML = `${moveHistory.length}. ${move.piece} ${move.from}→${move.to}${move.captured ? ` <span class="piece-captured">×${move.captured}</span>` : ''}`;
+            historyList.appendChild(moveDiv);
+            historyList.scrollTop = historyList.scrollHeight;
+        }
+    }
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    directionalLight.position.set(10, 15, 5);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+_    scene.add(directionalLight);
+
+    // Camera control
+    function updateCamera() {
+        const radius = cameraHeight;
+        const angleRad = (cameraViewAngle * Math.PI) / 180;
+
+        camera.position.x = Math.sin(cameraAngle) * radius * Math.cos(angleRad);
+        camera.position.y = radius * Math.sin(angleRad);
+        camera.position.z = Math.cos(cameraAngle) * radius * Math.cos(angleRad);
+
+        camera.lookAt(0, 0, 0);
+    }
+
+    // Mouse interaction
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    renderer.domElement.addEventListener('click', (event) => {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+
+        // Check piece clicks first
+        const pieceIntersects = raycaster.intersectObjects(pieceGroup.children);
+        if (pieceIntersects.length > 0) {
+            const clickedPiece = pieceIntersects[0].object;
+            const isWhitePiece = clickedPiece.isWhite;
+
+            if ((currentPlayer === 'white' && isWhitePiece) || (currentPlayer === 'black' && !isWhitePiece)) {
+                selectedPiece = clickedPiece;
+                selectedSquare = squares[clickedPiece.boardRow][clickedPiece.boardCol];
+                highlightValidMoves();
+                return;
+            }
+        }
+
+        // Check square clicks
+        const squareIntersects = raycaster.intersectObjects(boardGroup.children);
+        if (squareIntersects.length > 0) {
+            const clickedSquare = squareIntersects[0].object;
+
+            if (selectedPiece) {
+                // Check if this is a valid move
+                const targetMove = validMoves.find(move =>
+                    move.row === clickedSquare.boardRow && move.col === clickedSquare.boardCol
+                );
+
+                if (targetMove) {
+                    makeMove(selectedPiece.boardRow, selectedPiece.boardCol,
+                           clickedSquare.boardRow, clickedSquare.boardCol);
+                } else {
+                    // Invalid move, clear selection
+                    selectedPiece = null;
+                    selectedSquare = null;
+                    clearHighlights();
+                }
+            }
+        }
+    });
+
+    // Control event listeners
+    document.getElementById('heightSlider').addEventListener('input', (e) => {
+        cameraHeight = parseFloat(e.target.value);
+        document.getElementById('heightValue').textContent = cameraHeight;
+    });
+
+    document.getElementById('angleSlider').addEventListener('input', (e) => {
+        cameraViewAngle = parseFloat(e.target.value);
+        document.getElementById('angleValue').textContent = cameraViewAngle + '°';
+    });
+
+    document.getElementById('resetGame').addEventListener('click', () => {
+        // Reset game state
+        currentPlayer = 'white';
+        selectedPiece = null;
+        selectedSquare = null;
+        validMoves = [];
+        moveHistory = [];
+        cameraAngle = 0;
+
+        // Reinitialize board
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                gameBoard[row][col] = initialBoard[row][col];
+            }
+        }
+
+        createPieces();
+        clearHighlights();
+        updateGameStatus();
+        document.getElementById('historyList').innerHTML = '';
+    });
+
+    document.getElementById('autoRotate').addEventListener('click', function() {
+        autoRotateEnabled = !autoRotateEnabled;
+        this.classList.toggle('active', autoRotateEnabled);
+    });
+
+    document.getElementById('showMoves').addEventListener('click', function() {
+        showValidMoves = !showValidMoves;
+        this.classList.toggle('active', showValidMoves);
+        if (selectedPiece) {
+            highlightValidMoves();
+        }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Initialize game
+    createBoard();
+    createPieces();
+    updateCamera();
+    updateGameStatus();
+
+    // Animation loop
+    function animate() {
+        requestAnimationFrame(animate);
+        updateCamera();
+        renderer.render(scene, camera);
+    }
+    animate();
+</script>
+```
+
+</body>
+</html>
